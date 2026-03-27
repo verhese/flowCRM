@@ -27,7 +27,7 @@ The system follows a hierarchical structure:
 
 ## 📋 Prerequisites
 
-- Java 17 or higher
+- Java 25 or higher
 - Maven 3.6+
 - Git
 
@@ -132,5 +132,5 @@ This project is licensed under the terms specified in the LICENSE file.
 **Disclaimer**: This documentation was created with the assistance of GitHub Copilot.
 
 **Version**: 0.1
-**Java Version**: 17
+**Java Version**: 25
 **Build Tool**: Maven
