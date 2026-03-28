@@ -21,4 +21,9 @@ class LocaleUtilsTest {
     void testNormalizeLocaleUnknownFallsBackEn() {
         Assertions.assertEquals(Locale.ENGLISH, LocaleUtils.normalizeLocale(Locale.FRENCH));
     }
+
+    @Test
+    void testNormalizeLocaleNlNl() {
+        Assertions.assertEquals(Locale.forLanguageTag("nl-NL"), LocaleUtils.normalizeLocale(Locale.forLanguageTag("nl-NL")));
+    }
 }

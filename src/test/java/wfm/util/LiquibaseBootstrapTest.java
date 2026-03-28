@@ -3,6 +3,9 @@ package wfm.util;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -107,6 +110,18 @@ class LiquibaseBootstrapTest {
                 Assertions.assertFalse(rs.getString("updated_by").isBlank());
                 Assertions.assertFalse(rs.next());
             }
+        }
+    }
+
+    @Test
+    void testUpdateThrowsWhenPropertiesNotFound() throws Exception {
+        Path propsFile = Paths.get("target/classes/liquibase.properties");
+        Path tempFile = Paths.get("target/classes/liquibase.properties.bak");
+        Files.move(propsFile, tempFile);
+        try {
+            Assertions.assertThrows(IllegalStateException.class, LiquibaseBootstrap::update);
+        } finally {
+            Files.move(tempFile, propsFile);
         }
     }
 }

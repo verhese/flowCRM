@@ -263,4 +263,27 @@ class AbstractEngineTest {
                 "Expected " + expectedSequence.length + " state transitions but found " + index);
         }
     }
+
+    @Test
+    void testEngineHasErrorReturnsFalseOnEmptyLogList() throws FlowEngineException {
+        SimpleService service = new SimpleService("TEST");
+        SimpleInstance instance = new SimpleInstance(service);
+        SimpleTask task = new SimpleTask(instance);
+        SuccessNoLogicEngine engine = new SuccessNoLogicEngine();
+        engine.setTask(task);
+        // logList is empty before run() — CollectionUtils.isNotEmpty returns false, engineHasError bypasses the stream and returns false
+        Assertions.assertFalse(engine.engineHasError());
+    }
+
+    @Test
+    void testEngineHasErrorReturnsTrueWhenErrorLogPresent() throws FlowEngineException {
+        SimpleService service = new SimpleService("TEST");
+        SimpleInstance instance = new SimpleInstance(service);
+        SimpleTask task = new SimpleTask(instance);
+        ErrorNoLogicEngine engine = new ErrorNoLogicEngine();
+        engine.setTask(task);
+        engine.run();
+        // After a failed run the engine's logList retains the ERR entry — engineHasError must return true
+        Assertions.assertTrue(engine.engineHasError());
+    }
 }

@@ -85,57 +85,65 @@ public final class TransactionUtil {
         }
 
         if (entityManager != null) {
-            EntityTransaction transaction = entityManager.getTransaction();
-            boolean startedTransaction = transaction != null && !transaction.isActive();
-
-            if (startedTransaction) {
-                transaction.begin();
-            }
-
-            try {
-                entityManager.createNativeQuery("UPDATE flow_tasks SET state = :state WHERE id = :id")
-                        .setParameter("state", state.getCode())
-                        .setParameter("id", taskId)
-                        .executeUpdate();
-
-                if (transaction != null && transaction.isActive()) {
-                    transaction.commit();
-                }
-            } catch (RuntimeException runtimeException) {
-                if (transaction != null && transaction.isActive()) {
-                    transaction.rollback();
-                }
-                throw new IllegalStateException("Could not update task state", runtimeException);
-            }
+            updateTaskStateViaEntityManager(entityManager, taskId, state);
             return;
         }
 
         if (connection != null) {
-            try {
-                boolean originalAutoCommit = connection.getAutoCommit();
-                if (originalAutoCommit) {
-                    connection.setAutoCommit(false);
-                }
+            updateTaskStateViaConnection(connection, taskId, state);
+        }
+    }
 
-                try (PreparedStatement statement = connection.prepareStatement("UPDATE flow_tasks SET state = ? WHERE id = ?")) {
-                    statement.setString(1, state.getCode());
-                    statement.setLong(2, taskId);
-                    statement.executeUpdate();
-                }
+    private static void updateTaskStateViaEntityManager(EntityManager entityManager, Long taskId, FlowTaskState state) {
+        EntityTransaction transaction = entityManager.getTransaction();
+        boolean startedTransaction = transaction != null && !transaction.isActive();
 
-                connection.commit();
+        if (startedTransaction) {
+            transaction.begin();
+        }
 
-                if (originalAutoCommit) {
-                    connection.setAutoCommit(true);
-                }
-            } catch (SQLException sqlException) {
-                try {
-                    connection.rollback();
-                } catch (SQLException rollbackException) {
-                    sqlException.addSuppressed(rollbackException);
-                }
-                throw new IllegalStateException("Could not update task state", sqlException);
+        try {
+            entityManager.createNativeQuery("UPDATE flow_tasks SET state = :state WHERE id = :id")
+                    .setParameter("state", state.getCode())
+                    .setParameter("id", taskId)
+                    .executeUpdate();
+
+            if (transaction != null && transaction.isActive()) {
+                transaction.commit();
             }
+        } catch (RuntimeException runtimeException) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw new IllegalStateException("Could not update task state", runtimeException);
+        }
+    }
+
+    private static void updateTaskStateViaConnection(Connection connection, Long taskId, FlowTaskState state) {
+        try {
+            boolean originalAutoCommit = connection.getAutoCommit();
+            if (originalAutoCommit) {
+                connection.setAutoCommit(false);
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement("UPDATE flow_tasks SET state = ? WHERE id = ?")) {
+                statement.setString(1, state.getCode());
+                statement.setLong(2, taskId);
+                statement.executeUpdate();
+            }
+
+            connection.commit();
+
+            if (originalAutoCommit) {
+                connection.setAutoCommit(true);
+            }
+        } catch (SQLException sqlException) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackException) {
+                sqlException.addSuppressed(rollbackException);
+            }
+            throw new IllegalStateException("Could not update task state", sqlException);
         }
     }
 }
