@@ -64,4 +64,54 @@ class FlowEngineExceptionTest {
         Assertions.assertEquals("FLOW_ERR", ex.getErrorCode());
         Assertions.assertSame(inner, ex.getCause());
     }
+
+    @Test
+    void testStringConstructorsAndFromFactory() {
+        RuntimeException cause = new RuntimeException("broken");
+
+        FlowEngineException minimal = new FlowEngineException("E001", "Message");
+        Assertions.assertEquals("E001", minimal.getErrorCode());
+        Assertions.assertEquals("", minimal.getContext());
+        Assertions.assertEquals("[E001] Message", minimal.getFullMessage());
+
+        FlowEngineException withContext = new FlowEngineException("E002", "Message", "Context");
+        Assertions.assertEquals("Context", withContext.getContext());
+
+        FlowEngineException withCause = new FlowEngineException("E003", "Message", cause);
+        Assertions.assertSame(cause, withCause.getCause());
+
+        FlowEngineException blankCode = new FlowEngineException("   ", "Message", "Ctx", cause);
+        Assertions.assertEquals("FLOW_ERR", blankCode.getErrorCode());
+        Assertions.assertEquals("Ctx", blankCode.getContext());
+        Assertions.assertSame(cause, blankCode.getCause());
+
+        FlowEngineException fromFactory = FlowEngineException.from("E004", "Created");
+        Assertions.assertEquals("E004", fromFactory.getErrorCode());
+        Assertions.assertEquals("Created", fromFactory.getMessage());
+    }
+
+    @Test
+    void testWrapMethodsAndCauseLookupBranches() {
+        IllegalArgumentException cause = new IllegalArgumentException("bad input");
+
+        FlowEngineException wrappedKnownCode = FlowEngineException.wrap("ERR-001", cause);
+        Assertions.assertEquals("ERR-001", wrappedKnownCode.getErrorCode());
+        Assertions.assertFalse(wrappedKnownCode.getMessage().isBlank());
+
+        FlowEngineException existing = new FlowEngineException("E123", "Existing", "ctx", cause);
+        Assertions.assertSame(existing, FlowEngineException.wrap("OTHER", existing));
+
+        FlowEngineException wrappedDefault = FlowEngineException.wrap(cause);
+        Assertions.assertEquals("FLOW_ERR", wrappedDefault.getErrorCode());
+        Assertions.assertNull(wrappedDefault.getCause());
+        Assertions.assertFalse(wrappedDefault.getMessage().isBlank());
+
+        Assertions.assertFalse(existing.isCausedBy(null));
+        Assertions.assertTrue(existing.isCausedBy(IllegalArgumentException.class));
+        Assertions.assertFalse(existing.isCausedBy(IllegalStateException.class));
+        Assertions.assertTrue(existing.findCause(IllegalArgumentException.class).isPresent());
+        Assertions.assertTrue(existing.findCause(RuntimeException.class).isPresent());
+        Assertions.assertTrue(existing.findCause(FlowEngineException.class).isPresent());
+        Assertions.assertTrue(existing.findCause(null).isEmpty());
+    }
 }
