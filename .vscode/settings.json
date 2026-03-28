@@ -1,0 +1,10 @@
+{
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "chat.tools.terminal.autoApprove": {
+        "/^& \"C:\\\\sysprogs\\\\apache-maven-3\\.9\\.14\\\\bin\\\\mvn\\.cmd\" test -f \"c:\\\\sysdata\\\\flowCRM\\\\pom\\.xml\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    },
+    "java.debug.settings.onBuildFailureProceed": true
+}

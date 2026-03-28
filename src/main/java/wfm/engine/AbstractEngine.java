@@ -6,13 +6,17 @@ import wfm.config.AbstractConfig;
 import wfm.config.FlowTaskState;
 import wfm.config.impl.DefaultConfig;
 import wfm.exception.FlowEngineException;
+import wfm.exception.FlowErrorCode;
 import wfm.model.AbstractInstance;
 import wfm.model.AbstractLog;
 import wfm.model.AbstractTask;
 import wfm.model.simple.SimpleLog;
 import wfm.pojo.FlowEngineResult;
 import wfm.pojo.FlowLogType;
+import wfm.util.TransactionUtil;
 
+import javax.persistence.EntityManager;
+import java.sql.Connection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -70,14 +74,27 @@ public abstract class AbstractEngine {
     }
 
     /**
-     * Abstract method execute which needs to be implemented in the actual Engine implementation.
+     * Validate method for the engine.
      * <br/>
-     * This method should be seen as the start point of the task execution where the actual implementation of the task is called.
+     * Default implementation throws NO_VALIDATION_LOGIC and subclasses should override this.
      *
-     * @throws FlowEngineException which can be thrown by the task execution
+     * @throws FlowEngineException when no validation logic is provided
+     */
+    protected void validate() throws FlowEngineException {
+        throw new FlowEngineException(FlowErrorCode.NO_VALIDATION_LOGIC);
+    }
+
+    /**
+     * Execute method for the engine.
+     * <br/>
+     * Default implementation will raise a NO_LOGIC flow exception to force subclasses to override this method.
+     *
+     * @throws FlowEngineException when no execute logic is provided by subclass
      * @since 0.0.1
      */
-    public abstract void execute() throws FlowEngineException;
+    public void execute() throws FlowEngineException {
+        throw new FlowEngineException(FlowErrorCode.NO_EXECUTION_LOGIC);
+    }
 
     /**
      * Abstract method initialize which can be used to add extra logic to the initialization of the Engine.
@@ -87,11 +104,16 @@ public abstract class AbstractEngine {
     public abstract void initialize();
 
     /**
-     * Abstract method handleError which can be used to add specific logic to the logging process of te Engine.
+     * Handle error callback for the engine.
+     * <br/>
+     * Default implementation throws NO_ERROR_LOGIC and subclasses should override this.
      *
+     * @throws FlowEngineException when no error handling logic is provided
      * @since 0.0.1
      */
-    public abstract void handleError();
+    public void handleError() throws FlowEngineException {
+        throw new FlowEngineException(FlowErrorCode.NO_ERROR_LOGIC);
+    }
 
     /**
      * Execute the engine
@@ -101,14 +123,24 @@ public abstract class AbstractEngine {
     public final FlowEngineResult run() {
         FlowEngineResult result;
 
-        try {
-            addLog(FlowLogType.LOG,null,"Starting task processing.");
-            getTask().setState(FlowTaskState.EXECUTING);
+        beginTransaction();
 
+        try {
+            addLog(FlowLogType.LOG, null, "Starting task validation");
+            updateTaskState(FlowTaskState.PENDING);
+            validate();
+
+            addLog(FlowLogType.LOG,null,"Starting task processing.");
+            updateTaskState(FlowTaskState.EXECUTING);
             execute();
         } catch (FlowEngineException e) {
-            handleError();
-            addLog(FlowLogType.ERR, instance.getService().getCode(), e.getLocalizedMessage());
+            FlowEngineException errorToLog = e;
+            try {
+                handleError();
+            } catch (FlowEngineException handleErrorEx) {
+                errorToLog = handleErrorEx;
+            }
+            addLog(FlowLogType.ERR, instance.getService().getCode(), errorToLog.getLocalizedMessage());
         } finally {
             result = stopTask();
         }
@@ -124,18 +156,78 @@ public abstract class AbstractEngine {
      * @since 0.0.1
      */
     private FlowEngineResult stopTask(){
-
-        if(engineHasError()){
-            getTask().setState(FlowTaskState.ERROR);
-
-            // TODO perform rollback
-        } else {
-            getTask().setState(FlowTaskState.FINISHED);
+        try {
+            if(engineHasError()){
+                rollbackTransaction();
+                updateTaskState(FlowTaskState.ERROR);
+            } else {
+                updateTaskState(FlowTaskState.FINISHED);
+                commitTransaction();
+            }
+        } catch (Exception e) {
+            // In case commit/rollback fails, ensure task is marked error and add a log entry.
+            updateTaskState(FlowTaskState.ERROR);
+            addLog(FlowLogType.ERR,
+                   instance != null && instance.getService() != null ? instance.getService().getCode() : null,
+                   "Transaction failure: " + e.getMessage());
+            rollbackTransaction();
+        } finally {
+            this.getTask().setLogList(logList);
         }
 
-        this.getTask().setLogList(logList);
-
         return new FlowEngineResult();
+    }
+
+    /**
+     * Commit the transaction after successful task execution.
+     * <br/>
+     * Default implementation is a no-op; subclasses may override with actual DB transaction logic.
+     */
+    protected void commitTransaction() {
+        TransactionUtil.commitTransaction(getEntityManager(), getJdbcConnection());
+    }
+
+    /**
+     * Rollback the transaction after failed task execution.
+     * <br/>
+     * Default implementation is a no-op; subclasses may override with actual DB transaction logic.
+     */
+    protected void rollbackTransaction() {
+        TransactionUtil.rollbackTransaction(getEntityManager(), getJdbcConnection());
+    }
+
+    /**
+     * Begin a new transaction for this engine run.
+     */
+    protected void beginTransaction() {
+        TransactionUtil.beginTransaction(getEntityManager(), getJdbcConnection());
+    }
+
+    /**
+     * Provide an EntityManager for JPA-based transaction handling.
+     * Default implementation returns null and can be overridden in concrete engines.
+     */
+    protected EntityManager getEntityManager() {
+        return null;
+    }
+
+    /**
+     * Provide a JDBC connection for transaction handling when JPA is not used.
+     * Default implementation returns null and can be overridden in concrete engines.
+     */
+    protected Connection getJdbcConnection() {
+        return null;
+    }
+
+    protected Long getPersistentTaskId() {
+        return getTask() != null ? getTask().getId() : null;
+    }
+
+    protected void updateTaskState(FlowTaskState state) {
+        if (getTask() != null) {
+            getTask().setState(state);
+        }
+        TransactionUtil.updateTaskState(getEntityManager(), getJdbcConnection(), getPersistentTaskId(), state);
     }
 
     /**
@@ -152,7 +244,7 @@ public abstract class AbstractEngine {
 
             // when the log line is an error, then we should update the status of the task to the configured error state.
             if (FlowLogType.ERR.equals(logType)) {
-                task.setState(config.getErrState());
+                updateTaskState(config.getErrState());
             }
         }
     }
@@ -176,7 +268,7 @@ public abstract class AbstractEngine {
         if (instance != null) {
             this.instance = instance;
         } else {
-            // TODO throw error
+            throw new FlowEngineException(FlowErrorCode.INVALID_INSTANCE);
         }
         return this;
     }
@@ -201,7 +293,7 @@ public abstract class AbstractEngine {
                 setInstance(task.getInstance());
             }
         } else {
-            // TODO throw error
+            throw new FlowEngineException(FlowErrorCode.INVALID_TASK);
         }
         return this;
     }
@@ -223,7 +315,7 @@ public abstract class AbstractEngine {
         if (config != null) {
             this.config = config;
         } else {
-            // TODO throw error
+            throw new FlowEngineException(FlowErrorCode.INVALID_CONFIG);
         }
         return this;
     }

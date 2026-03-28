@@ -1,0 +1,196 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0001-create-service-instance-task-log
+      author: copilot
+      changes:
+        - createTable:
+            tableName: flow_services
+            columns:
+              - column:
+                  name: code
+                  type: varchar(100)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+        - createTable:
+            tableName: flow_instances
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: service_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: flow_instances
+            baseColumnNames: service_id
+            referencedTableName: flow_services
+            referencedColumnNames: code
+            constraintName: fk_instances_service
+        - createTable:
+            tableName: flow_tasks
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: instance_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: service_code
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: state
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: flow_tasks
+            baseColumnNames: instance_id
+            referencedTableName: flow_instances
+            referencedColumnNames: id
+            constraintName: fk_tasks_instance
+        - addForeignKeyConstraint:
+            baseTableName: flow_tasks
+            baseColumnNames: service_code
+            referencedTableName: flow_services
+            referencedColumnNames: code
+            constraintName: fk_tasks_service
+        - createTable:
+            tableName: flow_logs
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: sequence
+                  type: bigint
+              - column:
+                  name: task_id
+                  type: bigint
+              - column:
+                  name: instance_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: log_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reference
+                  type: varchar(35)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: message
+                  type: varchar(2000)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timestamp
+                  type: timestamp
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: flow_logs
+            baseColumnNames: task_id
+            referencedTableName: flow_tasks
+            referencedColumnNames: id
+            constraintName: fk_logs_task
+        - addForeignKeyConstraint:
+            baseTableName: flow_logs
+            baseColumnNames: instance_id
+            referencedTableName: flow_instances
+            referencedColumnNames: id
+            constraintName: fk_logs_instance
+  - changeSet:
+      id: 0002-create-task-state-log
+      author: copilot
+      changes:
+        - createTable:
+            tableName: flow_task_state_logs
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: task_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: new_state
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: flow_task_state_logs
+            baseColumnNames: task_id
+            referencedTableName: flow_tasks
+            referencedColumnNames: id
+            constraintName: fk_task_state_logs_task
+        - createIndex:
+            tableName: flow_task_state_logs
+            indexName: idx_task_state_logs_task_id
+            columns:
+              - column:
+                  name: task_id
+  - changeSet:
+      id: 0003-create-task-state-log-trigger-h2
+      author: copilot
+      dbms: h2
+      changes:
+        - sql:
+            sql: CREATE TRIGGER trg_flow_task_state_logs AFTER UPDATE ON flow_tasks FOR EACH ROW CALL "wfm.util.TaskStateLogH2Trigger"
+  - changeSet:
+      id: 0004-create-task-state-log-trigger-mysql
+      author: copilot
+      dbms: mysql
+      changes:
+        - sql:
+            splitStatements: false
+            stripComments: true
+            sql: |
+              CREATE TRIGGER trg_flow_task_state_logs
+              AFTER UPDATE ON flow_tasks
+              FOR EACH ROW
+              BEGIN
+                  IF NOT (OLD.state <=> NEW.state) THEN
+                      INSERT INTO flow_task_state_logs(task_id, new_state, updated_at, updated_by)
+                      VALUES (NEW.id, NEW.state, CURRENT_TIMESTAMP, CURRENT_USER());
+                  END IF;
+              END

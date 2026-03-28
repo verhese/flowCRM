@@ -86,7 +86,35 @@ SimpleTask task = new SimpleTask(instance);
 MyWorkflowEngine engine = new MyWorkflowEngine(instance, task);
 FlowEngineResult result = engine.run();
 ```
+### Liquibase Database Setup
 
+The default is an in-memory H2 setup (`liquibase.properties`). For local MySQL, use one of these approaches:
+
+1. Activate Maven profile:
+
+```bash
+mvn -Pmysql test
+```
+
+2. Override via environment variables (secure/CI-friendly):
+
+```bash
+export LIQUIBASE_URL="jdbc:mysql://localhost:3306/flowCRM?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+export LIQUIBASE_USERNAME="root"
+export LIQUIBASE_PASSWORD="secret"
+export LIQUIBASE_DRIVER="com.mysql.cj.jdbc.Driver"
+mvn test
+```
+
+3. Override via `-D` system properties:
+
+```bash
+mvn test \
+  -Dliquibase.url="jdbc:mysql://localhost:3306/flowCRM?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC" \
+  -Dliquibase.username=root \
+  -Dliquibase.password=secret \
+  -Dliquibase.driver=com.mysql.cj.jdbc.Driver
+```
 ## 🧪 Testing
 
 Run the test suite:
@@ -94,6 +122,25 @@ Run the test suite:
 ```bash
 mvn test
 ```
+
+## 🌐 Localization Support
+
+The engine now supports internationalized error messages via resource bundles under `src/main/resources`.
+
+- Default locale: `en` (fallback for unknown/unsupported locales)
+- Supported locales:
+  - `en` (`messages_en.properties` or `messages.properties`)
+  - `en-GB` (`messages_en_GB.properties`)
+  - `nl` (`messages_nl.properties`)
+  - `nl-BE` (`messages_nl_BE.properties`)
+  - `nl-NL` (`messages_nl_NL.properties`)
+
+Framework utilities:
+
+- `wfm.util.LocaleUtils` for locale normalization and fallback
+- `wfm.util.MessageResolver` for key-based message lookup with pluralization/formatting support
+
+Error codes are managed in `wfm.exception.FlowErrorCode`; exception wrappers are centralized in `wfm.exception.FlowEngineException`.
 
 ## 📁 Project Structure
 

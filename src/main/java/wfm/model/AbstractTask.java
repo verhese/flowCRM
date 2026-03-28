@@ -26,6 +26,8 @@ public abstract class AbstractTask {
     private Long id;
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<AbstractLog> logList = new java.util.ArrayList<>();
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
+    private List<AbstractTaskStateLog> taskStateLogList = new java.util.ArrayList<>();
 
     /**
      * The default constructor for the creation of a task.
@@ -108,5 +110,25 @@ public abstract class AbstractTask {
      */
     public void setLogList(List<AbstractLog> logList){
         this.logList = logList;
+    }
+
+    /**
+     * Retrieve the state change logs linked to the task.
+     *
+     * @return The state change logs linked to the task.
+     * @since 0.0.1
+     */
+    public List<AbstractTaskStateLog> getTaskStateLogList() {
+        return taskStateLogList;
+    }
+
+    /**
+     * Set the state change logs linked to the task.
+     *
+     * @param taskStateLogList The state change logs linked to the task.
+     * @since 0.0.1
+     */
+    public void setTaskStateLogList(List<AbstractTaskStateLog> taskStateLogList) {
+        this.taskStateLogList = taskStateLogList;
     }
 }
