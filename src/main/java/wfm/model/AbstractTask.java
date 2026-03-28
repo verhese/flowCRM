@@ -27,9 +27,6 @@ public abstract class AbstractTask {
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<AbstractLog> logList = new java.util.ArrayList<>();
 
-    private AbstractTask() {
-    }
-
     /**
      * The default constructor for the creation of a task.
      * The state of the task is defaulted to FlowTaskState.REGISTERED.

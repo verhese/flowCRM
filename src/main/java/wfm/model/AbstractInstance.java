@@ -19,15 +19,6 @@ public abstract class AbstractInstance {
 
     /**
      * Default constructor for creating a new instance.
-     *
-     * @since 0.0.1
-     */
-    private AbstractInstance() {
-        // nothing to do here
-    }
-
-    /**
-     * Default constructor for creating a new instance.
      * At the moment this does not contain any parameters yes, but mandatory fields will be added.
      *
      * @param service The AbstractService for which the instance is made.

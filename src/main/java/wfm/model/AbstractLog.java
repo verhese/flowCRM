@@ -35,9 +35,6 @@ public abstract class AbstractLog {
     @Column(nullable = false)
     private Timestamp timestamp;
 
-    private AbstractLog() {
-    }
-
     /**
      * Default constructor for when adding logging to a specific task.
      *

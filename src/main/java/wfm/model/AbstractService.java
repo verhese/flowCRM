@@ -16,9 +16,6 @@ public abstract class AbstractService {
     @Id
     private String code;
 
-    private AbstractService() {
-    }
-
     /**
      * Standard constructor for creating a service implementation.
      *

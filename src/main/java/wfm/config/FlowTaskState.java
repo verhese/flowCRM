@@ -112,6 +112,16 @@ public enum FlowTaskState {
     }
 
     /**
+     * Check is the current state is fnished.
+     *
+     * @return Boolean indicating whether the task is finished.
+     * @since 0.0.1
+     */
+    public Boolean isFinished() {
+        return isFinished;
+    }
+
+    /**
      * Returns the name of this enum constant, as contained in the
      * declaration.  This method may be overridden, though it typically
      * isn't necessary or desirable.  An enum class should override this
